@@ -1,0 +1,66 @@
+# Add this to your tools.yaml if using load_toolset("my-toolset")
+# Ensure it's at the same indentation level as 'sources:' and 'tools:'
+toolsets:
+  bq-toolset:
+    - get_costs_current_month_by_project
+    - bigquery_get_dataset_info
+    - bigquery_get_table_info
+    - bigquery_list_dataset_ids
+    - bigquery_list_table_ids
+    - get_project_spending_alerts
+sources:
+  my-bigquery-source:
+    kind: bigquery
+    project: bqadminprojexabeam
+    location: US
+tools:
+ # Example: Querying daily sales data
+  bigquery_get_dataset_info:
+    kind: bigquery-get-dataset-info
+    source: my-bigquery-source
+    description: Use this tool to get dataset metadata.
+  bigquery_get_table_info:
+    kind: bigquery-get-table-info
+    source: my-bigquery-source
+    description: Use this tool to get table metadata.
+  bigquery_list_dataset_ids:
+    kind: bigquery-list-dataset-ids
+    source: my-bigquery-source
+    description: Use this tool to get dataset metadata.
+  bigquery_list_table_ids:
+    kind: bigquery-list-table-ids
+    source: my-bigquery-source
+    description: Use this tool to get table metadata.
+  get_costs_current_month_by_project:
+    kind: bigquery-sql
+    source: my-bigquery-source
+    statement: |
+      SELECT
+        service.description,
+        SUM(cost) AS cost
+      FROM
+        `bqadminprojexabeam.standardbilling.gcp_billing_export_v1_018A64_FDB684_76013D`
+      WHERE
+        -- Filters for costs incurred from the beginning of the current month
+        _PARTITIONTIME >= TIMESTAMP_TRUNC(CURRENT_TIMESTAMP(), MONTH)
+        -- And filter by the specified project ID
+        AND project.id = @project_id
+      GROUP BY 1
+      ORDER BY cost DESC;
+    description: |
+      Gets the current month-to-date cloud cost data, broken down by service, 
+      for a specific Google Cloud project.
+    parameters:
+      - name: project_id
+        type: string
+        description: "The ID of the Google Cloud project to filter costs for."
+  get_project_spending_alerts:
+    kind: bigquery-sql
+    source: my-bigquery-source
+    statement: |
+      SELECT
+        *
+      FROM
+        `bqadminprojexabeam.anomalies.project_alerts`
+    description: |
+      Retrieves all project cost anomaly alerts.
