@@ -1,0 +1,85 @@
+#Run this in BigQuery as as scheduled query daily to search for anomalies in your billing data.
+
+-- ===================================================================================
+-- Part 1: Create the destination table for alerts if it doesn't already exist.
+-- This makes the script safe to run daily.
+-- ===================================================================================
+CREATE TABLE IF NOT EXISTS `<your_project_id>.anomalies.project_alerts` (
+ project_id STRING OPTIONS(description="The ID of the project with anomalous spending."),
+ project_name STRING OPTIONS(description="The name of the project."),
+ usage_date DATE OPTIONS(description="The date the anomalous cost occurred."),
+ total_cost FLOAT64 OPTIONS(description="The actual cost for the day, which triggered the alert."),
+ rolling_avg_cost FLOAT64 OPTIONS(description="The historical 30-day rolling average cost for this project."),
+ anomaly_threshold FLOAT64 OPTIONS(description="The cost threshold that was breached (avg + 3 * stddev)."),
+ alert_timestamp TIMESTAMP OPTIONS(description="The timestamp when this alert was generated and inserted.")
+)
+PARTITION BY
+ DATE(alert_timestamp)
+OPTIONS (
+ description = "Stores daily cost anomalies detected for GCP projects. Partitioned by the date the alert was generated."
+);
+
+
+
+
+-- ===================================================================================
+-- Part 2: Run the anomaly detection and insert any new findings into the table.
+-- ===================================================================================
+INSERT INTO `<your_project_id>.anomalies.project_alerts` (
+ project_id,
+ project_name,
+ usage_date,
+ total_cost,
+ rolling_avg_cost,
+ anomaly_threshold,
+ alert_timestamp
+)
+WITH
+daily_costs_by_project AS (
+ SELECT
+   project.id AS project_id,
+   project.name AS project_name,
+   DATE(usage_start_time) AS usage_date,
+   SUM(cost) AS total_cost
+ FROM
+   `<your_project_id>.<billing_dataset>.<standard_billing_table>`
+ GROUP BY
+   1, 2, 3
+),
+stats_by_project AS (
+ SELECT
+   project_id,
+   project_name,
+   usage_date,
+   total_cost,
+   AVG(total_cost) OVER (
+     PARTITION BY project_id
+     ORDER BY usage_date
+     ROWS BETWEEN 30 PRECEDING AND 1 PRECEDING
+   ) AS rolling_avg_cost,
+   STDDEV(total_cost) OVER (
+     PARTITION BY project_id
+     ORDER BY usage_date
+     ROWS BETWEEN 30 PRECEDING AND 1 PRECEDING
+   ) AS rolling_stddev_cost
+ FROM
+   daily_costs_by_project
+)
+SELECT
+ project_id,
+ project_name,
+ usage_date,
+ total_cost,
+ rolling_avg_cost,
+ (rolling_avg_cost + (3 * rolling_stddev_cost)) AS anomaly_threshold,
+ -- Add the current timestamp for when the alert is being generated
+ CURRENT_TIMESTAMP() AS alert_timestamp
+FROM
+ stats_by_project
+WHERE
+ -- Anomaly condition: Today's cost is more than 3 standard deviations above the average
+ total_cost > rolling_avg_cost + (3 * rolling_stddev_cost)
+ -- AND the rolling average is not null (ensures we have enough historical data)
+ AND rolling_avg_cost IS NOT NULL
+ -- Check for yesterday's data relative to your timezone
+ AND usage_date = CURRENT_DATE('America/Los_Angeles') - 1;

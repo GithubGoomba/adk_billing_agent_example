@@ -11,7 +11,7 @@ toolsets:
 sources:
   my-bigquery-source:
     kind: bigquery
-    project: bqadminprojexabeam
+    project: <insert_project_id>
     location: US
 tools:
  # Example: Querying daily sales data
@@ -39,7 +39,7 @@ tools:
         service.description,
         SUM(cost) AS cost
       FROM
-        `bqadminprojexabeam.standardbilling.gcp_billing_export_v1_018A64_FDB684_76013D`
+        `<project_id>.<dataset>.<billing_table_id>`
       WHERE
         -- Filters for costs incurred from the beginning of the current month
         _PARTITIONTIME >= TIMESTAMP_TRUNC(CURRENT_TIMESTAMP(), MONTH)
@@ -61,6 +61,6 @@ tools:
       SELECT
         *
       FROM
-        `bqadminprojexabeam.anomalies.project_alerts`
+        `<project_id>.anomalies.project_alerts`
     description: |
       Retrieves all project cost anomaly alerts.
