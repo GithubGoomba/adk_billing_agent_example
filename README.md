@@ -1,7 +1,7 @@
 1. You need to install ADK (at least version 1.2)
 2. You need to navigate to the .env file in the finops-agent/finops-agent dir and insert your api key
 3. in the tools.yaml and tools.py file, there are multiple hard coded project names for SQl queries that interact with GCP. See additional instructions below
-4. This demo relies on the gcp standard billing export being setup in GCP in the project you specify.
+4. This demo relies on the gcp standard billing export being setup in GCP in the project you specify. You should enable the BQ Billing Export in your project.
 5. Other GCP dependencies (need to create a pubsub topic and then an application integration workflow to allow for sending emails. See this repo for instructions on setting up the pubsub and application integration settings. https://github.com/norlove/BigQuery-Continuous-Queries-Abandoned-Shopping-Cart-Demo
 6. You need to install toolbox (step 2 here) https://googleapis.github.io/genai-toolbox/getting-started/local_quickstart/
 7. run the toolbox server #toolbox start #./toolbox --tools-file "tools.yaml"
